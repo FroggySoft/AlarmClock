@@ -573,47 +573,65 @@ void showWeatherForcast(byte aSection, byte aInfo[])
 {
   #define LINE_HEIGHT 20
 
-  bool lHighPart = ((aSection%2)==0);   // that's the high value part of the day
-
   char str[20];
+  int xPos;
+  int yPos;
   mTft.setTextColor(WHITE);
 
-  int yPos = YPOS_WEATHER;
-  // 2 sections a day (high and low), each WIDTH_WEATHER
-  // added seperation line bewteen each day
-  int day = aSection/2;
-  int xPos = XPOS_WEATHER + day*(1+2*WIDTH_WEATHER) + 1;
-  
-  // weather at daytime
-  showWeatherIcon(xPos, YPOS_WEATHER, Weather::GetWeatherDay(aInfo));
-
-  // weather at nighttime
-  showWeatherIcon(xPos+WIDTH_WEATHER, YPOS_WEATHER, Weather::GetWeatherNight(aInfo));
-
-  yPos += 52;
-
-  sprintf(str,"%dC",Weather::GetTemp(aInfo));
-  mTft.fillRect(lHighPart?xPos:xPos+WIDTH_WEATHER, yPos, WIDTH_WEATHER, LINE_HEIGHT, BLACK);
-  mTft.setCursor(lHighPart?xPos:xPos+WIDTH_WEATHER,yPos);   
-  mTft.print(str);
-
-  yPos += LINE_HEIGHT;
-  if (lHighPart)   // that's the high value part of the day
+  if (aSection==7)    // Only wind data is valid 
   {
-    mTft.fillRect(xPos, yPos, WIDTH_WEATHER, LINE_HEIGHT, BLACK);      
-    sprintf(str,"%d%%",Weather::GetRain(aInfo));
+      xPos = XPOS_WEATHER+6*WIDTH_WEATHER+3+WIDTH_WEATHER-12;
+      yPos = YPOS_WEATHER+52+LINE_HEIGHT;
+      mTft.fillRect(xPos, yPos, WIDTH_WEATHER+12, LINE_HEIGHT, BLACK);      
+      strcpy(str,Weather::GetWindDirection(aInfo));
+      strcat(str,Weather::GetWindForce(aInfo));
+    // for code efficiency moved outside if
+//      mTft.setCursor(xPos,yPos);   
+//      mTft.print(str);
   }
-  else  // that's the low value part of the day
+  else
   {
-    xPos+=WIDTH_WEATHER-12;
-    mTft.fillRect(xPos, yPos, WIDTH_WEATHER+12, LINE_HEIGHT, BLACK);      
-    strcpy(str,Weather::GetWindDirection(aInfo));
-    strcat(str,Weather::GetWindForce(aInfo));
+    bool lHighPart = ((aSection%2)==0);   // that's the high value part of the day
+    
+    yPos = YPOS_WEATHER;
+    // 2 sections a day (high and low), each WIDTH_WEATHER
+    // added seperation line bewteen each day
+    int day = aSection/2;
+    xPos = XPOS_WEATHER + day*(1+2*WIDTH_WEATHER) + 1;
+    
+    // weather at daytime
+    showWeatherIcon(xPos, YPOS_WEATHER, Weather::GetWeatherDay(aInfo));
+  
+    // weather at nighttime
+    showWeatherIcon(xPos+WIDTH_WEATHER, YPOS_WEATHER, Weather::GetWeatherNight(aInfo));
+  
+    yPos += 52;
+  
+    sprintf(str,"%dC",Weather::GetTemp(aInfo));
+    mTft.fillRect(lHighPart?xPos:xPos+WIDTH_WEATHER, yPos, WIDTH_WEATHER, LINE_HEIGHT, BLACK);
+    mTft.setCursor(lHighPart?xPos:xPos+WIDTH_WEATHER,yPos);   
+    mTft.print(str);
+  
+    yPos += LINE_HEIGHT;
+    if (lHighPart)   // that's the high value part of the day
+    {
+      mTft.fillRect(xPos, yPos, WIDTH_WEATHER, LINE_HEIGHT, BLACK);      
+      sprintf(str,"%d%%",Weather::GetRain(aInfo));
+    }
+    else  // that's the low value part of the day
+    {
+      xPos+=WIDTH_WEATHER-12;
+      mTft.fillRect(xPos, yPos, WIDTH_WEATHER+12, LINE_HEIGHT, BLACK);      
+      strcpy(str,Weather::GetWindDirection(aInfo));
+      strcat(str,Weather::GetWindForce(aInfo));
+    }
+    // for code efficiency moved outside if
+//    mTft.setCursor(xPos,yPos);   
+//    mTft.print(str);
   }
   mTft.setCursor(xPos,yPos);   
   mTft.print(str);
 }
-
 /* for memory eficiency, icons are a combination of two images:
  *  one top for the clouds (26 pixels high
  *  one a the bottom for the rain/snow (20 pixels high)
