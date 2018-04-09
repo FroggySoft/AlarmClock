@@ -49,13 +49,15 @@
 #define	BLUE    0x001F
 #define LIGHTBLUE    0x187F
 #define	RED     0xF800
+#define LIGHTRED 0xFACB
 #define	GREEN   0x07E0
 #define CYAN    0x07FF
 #define MAGENTA 0xF81F
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 #define GRAY1   0x38E7
-#define GRAY    0x79EF
+#define GRAY    0xD69A
+#define LIGHTGRAY 0xE71C
 
 #define TFT_CHAR_WIDTH  6
 #define TFT_CHAR_HEIGHT 8
@@ -470,7 +472,7 @@ void displayAlarm(byte aIndex, sAlarm aAlarm)
   uint16_t yPos = YPOS_ALARM + aIndex*((320-YPOS_ALARM)/NR_OF_ALARMS);
   mTft.fillRect(XPOS_ALARM,yPos,WIDTH_ALARM,HEIGHT_ALARM, BLACK);
   //mTft.setTextSize(2);
-  mTft.setTextColor(aAlarm.active?RED:GRAY);
+  mTft.setTextColor(aAlarm.active?LIGHTRED:GRAY);
   
   if(aIndex==mMenuSelectedAlarm)   // menu is active
   {
@@ -665,7 +667,7 @@ void showWeatherIcon(int aX, int aY, byte aIcon)
       mTft.drawBitmap(aX, aY,
               bmpWeer_1, 
               48,48,
-              WHITE,BLACK);
+              YELLOW,BLACK);
 
   }
   else if(aIcon>0 && aIcon<=15)
@@ -673,11 +675,11 @@ void showWeatherIcon(int aX, int aY, byte aIcon)
     mTft.drawBitmap(aX, aY,
                 WeatherImages[aIcon-2][0], 
                 48,26,
-                WHITE,BLACK);
+                LIGHTGRAY,BLACK);
     mTft.drawBitmap(aX, aY+26,
                 WeatherImages[aIcon-2][1], 
                 48,20,
-                WHITE,BLACK);
+                LIGHTBLUE,BLACK);
   }
 }
 
@@ -691,7 +693,7 @@ void showSunMoon(DateTime aDateTime)
   byte lMoonPhase = GetMoonPhase(aDateTime);
 
   // first draw 'full-moon' 
-  mTft.fillCircle(XPOS_MOON,YPOS_SUNMOON+MOON_RADIUS+10, MOON_RADIUS, WHITE);   // x,y is center of circle
+  mTft.fillCircle(XPOS_MOON,YPOS_SUNMOON+MOON_RADIUS+10, MOON_RADIUS, LIGHTGRAY);   // x,y is center of circle
   // then draw shadow of the earth over it
   int16_t lEarthPos = - (2*lMoonPhase*2*MOON_RADIUS/29);
   if(lMoonPhase>14)
@@ -707,7 +709,7 @@ void showSunMoon(DateTime aDateTime)
   mTft.drawBitmap(XPOS_SUN+8, YPOS_SUN,
                   bmpWeer_1, 
                   48,24,
-                  WHITE,BLACK);
+                  YELLOW,BLACK);
             
   mTft.setCursor(XPOS_SUN,0+36);  
   mTft.print(GetSunRise(aDateTime).GetTimeStr());
@@ -761,7 +763,7 @@ void handleTime(DateTime aDateTime,bool aForcedUpdate)
   //sprintf(str,"%02d:%02d", aDateTime.hour(), aDateTime.minute());
   mTft.fillRect(XPOS_TIME,YPOS_TIME,WIDTH_TIME,HEIGHT_TIME, BLACK);
   mTft.setCursor(XPOS_TIME,YPOS_TIME);
-  mTft.setTextColor(mAlarmActive?RED:WHITE);  
+  mTft.setTextColor(mAlarmActive?LIGHTRED:WHITE);  
   mTft.setTextSize(TIME_SIZE);
   //mTft.print(str);
   mTft.print(aDateTime.GetTimeStr());
