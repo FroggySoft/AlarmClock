@@ -216,8 +216,6 @@ void setup(void)
   mDcf.Init(PIN_DCF);
   mMp3.Init();
 
-  makeWeatherForcastGrid();
-
   // Test Data
 //  {0x84,0x08,0x40}    // weer_1 + weer_2 , 15% , -20   =  1000 0100 0000 100 0 01000000
 //  {0xC2,0x08,0x30}    // weer_3 + weer_4 , N0-2 , -10 = 1100 0010 0000 100 0 0011 0000
@@ -256,13 +254,13 @@ void loop(void)
 
   if (lDcfState!=DCF_STATE_SAMPLING)  // don't interrupt realtime task
   {
-    unsigned long now = millis();
-    unsigned long diff = now-mPrevTimeMs;
+    unsigned long nowMs = millis();
+    unsigned long diff = nowMs-mPrevTimeMs;
     if( diff>50)
     {
       handleKeys();
       handleMenu(diff);
-      mPrevTimeMs = now;
+      mPrevTimeMs = nowMs;
     }
   }
   
@@ -278,17 +276,17 @@ void loop(void)
 
     DateTime now = mRtc.now();
 
-    if (mPrevMinute != now.minute())
+    if (now.IsValid() && mPrevMinute != now.minute())
     {
       TestAlarms(now.hour(), now.minute(), now.dayOfWeek());
 
       // add a new value to the graphics bar every 20 minutes
       bool lAddNewSample = false;
-      byte lNow = now.minute();
-      if ((lNow%20)==0 && mPrevQuarter!=lNow)
+      byte lNowMinute = now.minute();
+      if ((lNowMinute%20)==0 && mPrevQuarter!=lNowMinute)
       {
         lAddNewSample = true;
-        mPrevQuarter = lNow;
+        mPrevQuarter = lNowMinute;
       }
       handleTempPressure(lAddNewSample);
     }
@@ -310,7 +308,7 @@ void loop(void)
       DateTime lDcfTime = mDcf.GetTime();
       DateTime now = mRtc.now();
   
-      if (lDcfTime!=now)
+      if (now.IsValid() && lDcfTime!=now)
       {
 //        Serial.print(F("My time "));
 //        Serial.print(now.GetTimeStr());
@@ -550,25 +548,18 @@ void displayPressureGraph()
  *   temp max temp-min
  *   wind     rain
  */
-void makeWeatherForcastGrid()
+void makeWeatherForcastGrid(int aFirstDay)
 {
-  mTft.fillRect(XPOS_WEATHER, YPOS_WEATHER-20, 8*WIDTH_WEATHER, HEIGHT_WEATHER+20, BLACK);
-
+  mTft.fillRect(XPOS_WEATHER, YPOS_WEATHER-20, 8*WIDTH_WEATHER, 20, BLACK);
   mTft.setTextColor(WHITE);
-  mTft.setCursor(XPOS_WEATHER,YPOS_WEATHER-20);   
-  mTft.print("vandaag");
-  
-  mTft.drawLine(XPOS_WEATHER+2*WIDTH_WEATHER+1, YPOS_WEATHER, XPOS_WEATHER+2*WIDTH_WEATHER+1, YPOS_WEATHER+HEIGHT_WEATHER, WHITE);
-  mTft.setCursor(XPOS_WEATHER+2*WIDTH_WEATHER+2+12,YPOS_WEATHER-20);   
-  mTft.print("morgen");
-  
-  mTft.drawLine(XPOS_WEATHER+4*WIDTH_WEATHER+2, YPOS_WEATHER, XPOS_WEATHER+4*WIDTH_WEATHER+2, YPOS_WEATHER+HEIGHT_WEATHER, WHITE);
-  mTft.setCursor(XPOS_WEATHER+4*WIDTH_WEATHER+3+24,YPOS_WEATHER-20);   
-  mTft.print("dag 3");
-  
-  mTft.drawLine(XPOS_WEATHER+6*WIDTH_WEATHER+3, YPOS_WEATHER, XPOS_WEATHER+6*WIDTH_WEATHER+3, YPOS_WEATHER+HEIGHT_WEATHER, WHITE);
-  mTft.setCursor(XPOS_WEATHER+6*WIDTH_WEATHER+4+24,YPOS_WEATHER-20);   
-  mTft.print("dag 4");
+
+  for( int i=0; i<4; i++)
+  {
+    int xPos = XPOS_WEATHER+i*2*WIDTH_WEATHER+i+1;
+    mTft.setCursor(xPos+30,YPOS_WEATHER-20);   
+    mTft.print(alarmdays[(aFirstDay+i)%7]);
+    mTft.drawLine(xPos, YPOS_WEATHER, xPos, YPOS_WEATHER+HEIGHT_WEATHER, WHITE);    
+  }
 }
 
 void showWeatherForcast(byte aSection, byte aInfo[])
@@ -789,6 +780,9 @@ void handleTime(DateTime aDateTime,bool aForcedUpdate)
     mPrevDate = aDateTime;
 
     showSunMoon(aDateTime);
+
+    makeWeatherForcastGrid(aDateTime.dayOfWeek());
+
   }
   //Serial.println();
 }

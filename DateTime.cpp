@@ -201,11 +201,18 @@ DateTime::DateTime (uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uin
     if (year >= 2000)
         year -= 2000;
     yOff = year;
-    if (month<=12)  m = month;
-    if (day<=31)    d = day;
-    if (hour<=24)   hh = hour;
-    if (min<=60)    mm = min;
-    if (sec<=60)    ss = sec;
+    if((month<=12) &&
+       (day<=31) &&
+       (hour<=24) &&
+       (min<=60) &&
+       (sec<=60))
+    {
+      m = month;
+      d = day;
+      hh = hour;
+      mm = min;
+      ss = sec;
+    }
 }
 
 void DateTime::Clear()
@@ -216,6 +223,11 @@ void DateTime::Clear()
     hh = 0;
     mm = 0;
     ss = 0;
+}
+
+bool DateTime::IsValid()
+{
+  return (d != 0);
 }
 
 static char mStr[12];
