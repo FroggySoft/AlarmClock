@@ -1,7 +1,10 @@
 
 #include "bmpWeer_1.h"
+#include "bmpWeer_1N.h"
 #include "bmpWeer_2.h"
+#include "bmpWeer_2N.h"
 #include "bmpWeer_3.h"
+#include "bmpWeer_3N.h"
 #include "bmpWeer_4.h"
 #include "bmpWeer_5.h"
 #include "bmpWeer_6.h"

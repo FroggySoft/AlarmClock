@@ -107,7 +107,7 @@
 #define YPOS_WEATHER     (YPOS_DATE+HEIGHT_DATE+20)
 #define WIDTH_WEATHER    (XPOS_ALARM/8)
 #define HEIGHT_WEATHER   (320-YPOS_WEATHER-1)
-
+#define NR_OF_WEATHER_ICONS 15
 #define XPOS_SUNMOON     (XPOS_PRES+WIDTH_TEMPPRES+20)
 #define XPOS_MOON        (XPOS_SUNMOON+20)
 #define XPOS_SUN         (XPOS_SUNMOON+5*6*DATE_SIZE)
@@ -172,6 +172,8 @@ int  mHistoryIndex = 0;
 byte mPrevQuarter = 0;
 bool mDcfStatus = false;
 
+unsigned int mLDR = 0;
+
 Adafruit_TFTLCD mTft(LCD_CS, LCD_CD, LCD_WR, LCD_RD);
 RTC_DS1307 mRtc;
 Dcf77      mDcf;
@@ -215,34 +217,6 @@ void setup(void)
 
   mDcf.Init(PIN_DCF);
   mMp3.Init();
-
-  // Test Data
-//  {0x84,0x08,0x40}    // weer_1 + weer_2 , 15% , -20   =  1000 0100 0000 100 0 01000000
-//  {0xC2,0x08,0x30}    // weer_3 + weer_4 , N0-2 , -10 = 1100 0010 0000 100 0 0011 0000
-//  {0xA6,0x0C,0x68}    // weer_5 + weer_6 , 45% , 0     = 1010 0110 0000 110 0 01101000
-//  {0xE1,0x4C,0x04}    // weer_7 + weer_8 , E5-6, +10  = 1110 0001 0100 110 0 00000100
-//  {0x95,0x04,0x44}    // weer_9 + weer_10 , 60% , +12  = 1001 0101 0000 001 0 01000100
-//  {0xD3,0xCA,0x54}    // weer_11 + weer_12 , SE8, +20 = 1101 0011 1100 1010 01010100
-//  {0xD7,0x0A,0xF4}    // weer_13 + weer_14 , 75% , +25 = 1011 0111 0000 101 0 11110100
-//  {0xF8,0xAE,0x6C}    // weer_15 + weer_1 , SW >9 , +30 = 1111 1000 1010 1110 01101100
-
-//  byte info0[] = {0x84,0x08,0x40};
-//  byte info1[] = {0x84,0x08,0x30};;// {0xC2,0x08,0x30};
-//  byte info2[] = {0xA6,0x0C,0x68};
-//  byte info3[] = {0xA6,0x4C,0x04};//{0xE1,0x4C,0x04};
-//  byte info4[] = {0x95,0x02,0x44};
-//  byte info5[] = {0x95,0xCA,0x54};//{0xD3,0xCA,0x54};
-//  byte info6[] = {0xD7,0x0A,0xF4};
-//  byte info7[] = {0xF8,0xAE,0x6C};//{0xF8,0xAE,0x6C};
-//
-//  showWeatherForcast(0,info0);
-//  showWeatherForcast(1,info1);
-//  showWeatherForcast(2,info2);
-//  showWeatherForcast(3,info3);
-//  showWeatherForcast(4,info4);
-//  showWeatherForcast(5,info5);
-//  showWeatherForcast(6,info6);
-//  showWeatherForcast(7,info7);
 }
 
 
@@ -299,6 +273,7 @@ void loop(void)
       mPrevMinute = now.minute();
     }
     HandleAlarmSound();
+    HandleBacklight();
   }
   if (lDcfState==DCF_STATE_NEWMINUTE)
   {
@@ -308,7 +283,7 @@ void loop(void)
       DateTime lDcfTime = mDcf.GetTime();
       DateTime now = mRtc.now();
   
-      if (now.IsValid() && lDcfTime!=now)
+      if (lDcfTime.IsValid() && lDcfTime!=now)
       {
 //        Serial.print(F("My time "));
 //        Serial.print(now.GetTimeStr());
@@ -324,24 +299,21 @@ void loop(void)
   {
     // new weather info available
     byte aInfo[WEATHER_INFO_SIZE];
-    if (mDcf.GetWeatherInfo(aInfo))
+    byte area = mDcf.GetWeatherArea();
+    if (area==42)    // Amsterdam
     {
-      byte area = mDcf.GetWeatherArea();
       byte section = mDcf.GetWeatherSection();
-      if (area==42)    // Amsterdam
+      if (mDcf.GetWeatherInfo(aInfo))
       {
         showWeatherForcast(section,aInfo);
+      }
+      else
+      {
+        clearWeatherForcast(section);        // remove previous info, new is invalid
       }
     }
   }
   
-  #ifdef DEBUG_INPUT
-  if(Serial.available())
-  {
-    handleDebugInput();
-  }
-#endif
-
   if(mPirState != digitalRead(PIN_PIR))
   {
     mPirState = digitalRead(PIN_PIR);  
@@ -555,8 +527,8 @@ void makeWeatherForcastGrid(int aFirstDay)
 
   for( int i=0; i<4; i++)
   {
-    int xPos = XPOS_WEATHER+i*2*WIDTH_WEATHER+i+1;
-    mTft.setCursor(xPos+30,YPOS_WEATHER-20);   
+    int xPos = XPOS_WEATHER+i*2*WIDTH_WEATHER+i;
+    mTft.setCursor(xPos+31,YPOS_WEATHER-20);   
     mTft.print(alarmdays[(aFirstDay+i)%7]);
     mTft.drawLine(xPos, YPOS_WEATHER, xPos, YPOS_WEATHER+HEIGHT_WEATHER, WHITE);    
   }
@@ -596,7 +568,7 @@ void showWeatherForcast(byte aSection, byte aInfo[])
     showWeatherIcon(xPos, YPOS_WEATHER, Weather::GetWeatherDay(aInfo));
   
     // weather at nighttime
-    showWeatherIcon(xPos+WIDTH_WEATHER, YPOS_WEATHER, Weather::GetWeatherNight(aInfo));
+    showWeatherIcon(xPos+WIDTH_WEATHER, YPOS_WEATHER, Weather::GetWeatherNight(aInfo) + NR_OF_WEATHER_ICONS);
   
     yPos += 52;
   
@@ -625,6 +597,14 @@ void showWeatherForcast(byte aSection, byte aInfo[])
   mTft.setCursor(xPos,yPos);   
   mTft.print(str);
 }
+
+void clearWeatherForcast(byte aSection)
+{
+  int day = aSection/2;
+  int xPos = XPOS_WEATHER + day*(1+2*WIDTH_WEATHER) + 1;
+  mTft.fillRect(xPos, YPOS_WEATHER, 2*WIDTH_WEATHER, HEIGHT_WEATHER, BLACK);
+}
+
 /* for memory eficiency, icons are a combination of two images:
  *  one top for the clouds (26 pixels high
  *  one a the bottom for the rain/snow (20 pixels high)
@@ -645,6 +625,22 @@ const byte* WeatherImages[][2] = {
     {bmpWeer_3,bmpWeer_7},
     {bmpWeer_4,bmpWeer_13},
     {bmpWeer_1,bmpWeer_8},
+    {bmpWeer_4,bmpWeer_9},
+    // for night time
+    {bmpWeer_1N,0},
+    {bmpWeer_2N,0},
+    {bmpWeer_3N,0},
+    {bmpWeer_4,0},
+    {bmpWeer_3N,bmpWeer_5},
+    {bmpWeer_4,bmpWeer_6},
+    {bmpWeer_4,bmpWeer_7},
+    {0,bmpWeer_8},
+    {bmpWeer_3N,bmpWeer_9},
+    {bmpWeer_3N,bmpWeer_6},
+    {bmpWeer_4,bmpWeer_11},
+    {bmpWeer_3N,bmpWeer_7},
+    {bmpWeer_4,bmpWeer_13},
+    {bmpWeer_1,bmpWeer_8},
     {bmpWeer_4,bmpWeer_9}
   };
 
@@ -661,7 +657,7 @@ void showWeatherIcon(int aX, int aY, byte aIcon)
               YELLOW,BLACK);
 
   }
-  else if(aIcon>0 && aIcon<=15)
+  else if(aIcon>0 && aIcon<=31)
   {
     mTft.drawBitmap(aX, aY,
                 WeatherImages[aIcon-2][0], 
@@ -790,8 +786,8 @@ void handleTime(DateTime aDateTime,bool aForcedUpdate)
 void handleKeys()
 {
   static bool keyIdle=true;
-  unsigned int lAdcValues[2];
-  mAdc.ReadADC(lAdcValues,2);
+  unsigned int lAdcValues[4];
+  mAdc.ReadADC(lAdcValues,4);
 
   if(keyIdle)
   {
@@ -816,6 +812,8 @@ void handleKeys()
          keyIdle = true;
        }
   }
+
+  mLDR = lAdcValues[3];
 }
 
 void handleMenu(unsigned int aElapsedTimeMs)
@@ -840,7 +838,7 @@ void handleMenu(unsigned int aElapsedTimeMs)
 }
 
 void handleMenuDo(sMenuStates aMenuState)
-{  
+{
   switch( aMenuState )
   {
     case MenuIdle:
@@ -919,6 +917,7 @@ void handleMenuDo(sMenuStates aMenuState)
     default: 
       break;
   }
+
 }
 
 sMenuStates handleMenuTransfer(sMenuStates aMenuState)
@@ -991,25 +990,25 @@ sMenuStates handleMenuTransfer(sMenuStates aMenuState)
 
 void handleMenuEntry(sMenuStates aMenuState)
 {
-  
+  /***
   switch( aMenuState )
   {
     case MenuIdle:
       mMenuSelectedAlarm = -1;
-      displayAlarms();
-      break;
+//      displayAlarms();
+//      break;
     case MenuSelectAlarm:
       displayAlarms();
       break;
     case MenuChangeAlarmDay:
-      displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
-      break;
+//      displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
+//      break;
     case MenuChangeAlarmHour:
-      displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
-      break;
+//      displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
+//      break;
     case MenuChangeAlarmMinute:
-      displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
-      break;
+//      displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
+//      break;
     case MenuChangeAlarmActive:
       displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
       break;
@@ -1021,18 +1020,36 @@ void handleMenuEntry(sMenuStates aMenuState)
     default: 
       break;
   }
+  **/
+  if (aMenuState==MenuIdle || aMenuState==MenuSelectAlarm)
+      displayAlarms();
+      
+  if (aMenuState==MenuChangeAlarmDay || 
+      aMenuState==MenuChangeAlarmHour ||
+      aMenuState==MenuChangeAlarmMinute ||
+      aMenuState==MenuChangeAlarmActive)
+    displayAlarm(mMenuSelectedAlarm,mAlarms[mMenuSelectedAlarm]);
+    
+  if (aMenuState==MenuStoreAlarm)
+      StoreAlarm(mMenuSelectedAlarm, mAlarms[mMenuSelectedAlarm]);
+      
+  if (aMenuState==MenuRestoreAlarm)
+      ReadAlarm(mMenuSelectedAlarm, mAlarms[mMenuSelectedAlarm]);
+
 }
 
 void handleMenuExit(sMenuStates aMenuState)
 {
-  switch( aMenuState )
-  {
-    case MenuIdle:
+//  switch( aMenuState )
+//  {
+//    case MenuIdle:
+//      mMenuSelectedAlarm = 0;
+//      break;
+//    default: 
+//      break;
+//  }
+  if (aMenuState == MenuIdle)
       mMenuSelectedAlarm = 0;
-      break;
-    default: 
-      break;
-  }
 }
 
 void HandleAlarmSound()
@@ -1055,5 +1072,17 @@ void HandleAlarmSound()
       mMp3.IncreaseVolume(1);
     }
   }
+}
+
+void HandleBacklight()
+{
+  char str[12];
+  unsigned int level = 100 - mLDR/328;
+  sprintf(str,"%d%%",level);
+  //sprintf(str,"%d",mLDR);
+  mTft.fillRect(XPOS_SUNMOON,YPOS_SUNMOON+2*MOON_RADIUS+15,XPOS_SUN-XPOS_SUNMOON,12, BLACK);
+  mTft.setTextColor(WHITE);
+  mTft.setCursor(XPOS_SUNMOON,YPOS_SUNMOON+2*MOON_RADIUS+15);
+  mTft.print(str);
 }
 

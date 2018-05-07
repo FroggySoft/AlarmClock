@@ -78,27 +78,27 @@ static unsigned long makeTime(DateTime aDate)
       return seconds;
   }
   
-  static DateTime HoursMinutes(float aTime)
-  {
-    DateTime time;
-
-    float hrs;
-    float min = modff(aTime, &hrs);
-
-    min = round(60.0*min);
-    if (min == 60)        // Voorkom dat er 16:60 verschijnt ipv 17:00
-    {
-      min = 0;
-      hrs += 1;
-      if (hrs > 24 )
-        hrs = 0;
-    }
-
-    time.hh = hrs;
-    time.mm = min;
-    time.ss = 0;
-    return time;
-  }
+//  static DateTime HoursMinutes(float aTime)
+//  {
+//    DateTime time;
+//
+//    float hrs;
+//    float min = modff(aTime, &hrs);
+//
+//    min = round(60.0*min);
+//    if (min == 60)        // Voorkom dat er 16:60 verschijnt ipv 17:00
+//    {
+//      min = 0;
+//      hrs += 1;
+//      if (hrs > 24 )
+//        hrs = 0;
+//    }
+//
+//    time.hh = hrs;
+//    time.mm = min;
+//    time.ss = 0;
+//    return time;
+//  }
 static int DiffinDays(DateTime aDate1, DateTime aDate2)
 {
   uint16_t days1 = date2days(aDate1);
@@ -113,15 +113,17 @@ byte GetMoonPhase(DateTime aDate)
   // Note that new moon is 1 i.s.o. zero
 	float MaanCyclus = 29.530589;
 	DateTime NieuweMaan(5,5,7,0,0,0);  //"June 7, 2005 00:00:00");  2005-2000=5
-	float AantalDagen = (float)DiffinDays(aDate,NieuweMaan);
-	float CyclusDeel = AantalDagen/MaanCyclus - floor(AantalDagen/MaanCyclus); // Alleen de decimalen
-	return round(MaanCyclus*CyclusDeel);
+	//float AantalDagen = (float)DiffinDays(aDate,NieuweMaan);
+	//float CyclusDeel = AantalDagen/MaanCyclus - floor(AantalDagen/MaanCyclus); // Alleen de decimalen
+  //return round(MaanCyclus*CyclusDeel);
+  int AantalDagen = DiffinDays(aDate,NieuweMaan);
+	float CyclusDeel = AantalDagen/MaanCyclus - int(AantalDagen/MaanCyclus); // Alleen de decimalen
+  return int(MaanCyclus*CyclusDeel+0.5);
 }
 
 DateTime getSunTime(DateTime aDate, bool aRiseNotSet)
 {
 	float eqtime,hars;
-	//float doy = DateTime::DayOfYear(aDate);
 	float doy = date2days(aDate);//aDate.yOff+2000, aDate.m, aDate.d);
 
 	doy += 0.5;
@@ -152,7 +154,31 @@ DateTime getSunTime(DateTime aDate, bool aRiseNotSet)
 	if (aDate.dst) // extra daylight saving time correction
 	  x++;
 
-	return HoursMinutes(x);
+    DateTime lSunTime;
+
+/**
+    float hrs;
+    float min = modff(x, &hrs);
+
+    min = round(60.0*min);
+**/
+    int hrs = (int)(x);
+    x -= hrs; // remove integral part
+    x *= 60;  
+    int min = (int)x;
+
+    if (min == 60)        // Voorkom dat er 16:60 verschijnt ipv 17:00
+    {
+      min = 0;
+      hrs += 1;
+      if (hrs > 24 )
+        hrs = 0;
+    }
+
+    lSunTime.hh = hrs;
+    lSunTime.mm = min;
+    lSunTime.ss = 0;
+    return lSunTime;
 }
 
 DateTime GetSunRise(DateTime aDate)
@@ -169,7 +195,8 @@ DateTime GetSunSet(DateTime aDate)
 // DateTime implementation - ignores time zones and DST changes
 // NOTE: also ignores leap seconds, see http://en.wikipedia.org/wiki/Leap_second
 
-DateTime::DateTime (uint32_t t) {
+DateTime::DateTime (uint32_t t)
+{
   t -= SECONDS_FROM_1970_TO_2000;    // bring to 2000 timestamp from 1970
 
     ss = t % 60;
