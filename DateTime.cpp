@@ -1,5 +1,5 @@
+#include "ProjSettings.h"
 #include "DateTime.h"
-#include <Arduino.h> // capital A so it is error prone on case-sensitive filesystems
 
 #define DS1307_ADDRESS 0x68
 #define SECONDS_PER_DAY 86400L
@@ -18,7 +18,7 @@ const uint8_t daysInMonth [] PROGMEM = { 31,28,31,30,31,30,31,31,30,31,30,31 }; 
 
 // number of days since 2000/01/01, valid for 2001..2099
 
-static uint16_t date2days(uint16_t y, uint8_t m, uint8_t d)
+uint16_t date2days(uint16_t y, uint8_t m, uint8_t d)
 {
     if (y >= 2000)
         y -= 2000;
@@ -34,71 +34,45 @@ static uint16_t date2days(DateTime aDate)
   return date2days(aDate.yOff, aDate.m, aDate.d);
 }
 
-static long time2long(uint16_t days, uint8_t h, uint8_t m, uint8_t s) {
-    return ((days * 24L + h) * 60 + m) * 60 + s;
-}
-
 static unsigned long makeTime(DateTime aDate)
-  {
-  // converts time components to time_t
-  // note year argument is full four digit year (or digits since 2000), i.e.1975, (year 8 is 2008)
+{
+// converts time components to time_t
+// note year argument is full four digit year (or digits since 2000), i.e.1975, (year 8 is 2008)
 
-     int i;
-     int year = aDate.yOff + 2000;
-     unsigned long seconds;
+   int i;
+   int year = aDate.year();
+   unsigned long seconds;
 
-      // seconds from 1970 till 1 jan 00:00:00 this year
-      seconds= (year-1970)*(60*60*24L*365);
+    // seconds from 1970 till 1 jan 00:00:00 this year
+    seconds= (year-1970)*(60*60*24L*365);
 
-      // add extra days for leap years
-      for (i=1970; i<year; i++)
-      {
-          if (LEAP_YEAR(i))
-          {
-              seconds+= 60*60*24L;
-          }
-      }
-      // add days for this year
-      for (i=0; i<aDate.m; i++)
-      {
-        if (i==1 && LEAP_YEAR(year))
+    // add extra days for leap years
+    for (i=1970; i<year; i++)
+    {
+        if (LEAP_YEAR(i))
         {
-          seconds+= 60*60*24L*29;
+            seconds+= 60*60*24L;
         }
-        else
-        {
-          seconds+= 60*60*24L*daysInMonth[i];
-        }
+    }
+    // add days for this year
+    for (i=0; i<aDate.m; i++)
+    {
+      if (i==1 && LEAP_YEAR(year))
+      {
+        seconds+= 60*60*24L*29;
       }
+      else
+      {
+        seconds+= 60*60*24L*daysInMonth[i];
+      }
+    }
 
-      seconds+= (aDate.d-1)*3600*24L;
-      seconds+= aDate.hh*3600L;
-      seconds+= aDate.mm*60L;
-      seconds+= aDate.ss;
-      return seconds;
-  }
+    seconds+= (aDate.d-1)*3600*24L;
+    seconds+= aDate.hh*3600L;
+    seconds+= aDate.mm*60L;
+    return seconds;
+}
   
-//  static DateTime HoursMinutes(float aTime)
-//  {
-//    DateTime time;
-//
-//    float hrs;
-//    float min = modff(aTime, &hrs);
-//
-//    min = round(60.0*min);
-//    if (min == 60)        // Voorkom dat er 16:60 verschijnt ipv 17:00
-//    {
-//      min = 0;
-//      hrs += 1;
-//      if (hrs > 24 )
-//        hrs = 0;
-//    }
-//
-//    time.hh = hrs;
-//    time.mm = min;
-//    time.ss = 0;
-//    return time;
-//  }
 static int DiffinDays(DateTime aDate1, DateTime aDate2)
 {
   uint16_t days1 = date2days(aDate1);
@@ -112,7 +86,7 @@ byte GetMoonPhase(DateTime aDate)
 {
   // Note that new moon is 1 i.s.o. zero
 	float MaanCyclus = 29.530589;
-	DateTime NieuweMaan(5,5,7,0,0,0);  //"June 7, 2005 00:00:00");  2005-2000=5
+	DateTime NieuweMaan(5,5,7,0,0);//,0);  //"June 7, 2005 00:00:00");  2005-2000=5
 	//float AantalDagen = (float)DiffinDays(aDate,NieuweMaan);
 	//float CyclusDeel = AantalDagen/MaanCyclus - floor(AantalDagen/MaanCyclus); // Alleen de decimalen
   //return round(MaanCyclus*CyclusDeel);
@@ -151,34 +125,28 @@ DateTime getSunTime(DateTime aDate, bool aRiseNotSet)
 	  x += 4*(longitude+hars);
 
 	x = x/60 + 1;  // from UTC to CET
-	if (aDate.dst) // extra daylight saving time correction
+  //if (aDate.dst) // extra daylight saving time correction
+	if (IsDst(aDate))
 	  x++;
 
-    DateTime lSunTime;
+  DateTime lSunTime;
 
-/**
-    float hrs;
-    float min = modff(x, &hrs);
+  int hrs = (int)(x);
+  x -= hrs; // remove integral part
+  x *= 60;  
+  int min = (int)x;
 
-    min = round(60.0*min);
-**/
-    int hrs = (int)(x);
-    x -= hrs; // remove integral part
-    x *= 60;  
-    int min = (int)x;
+  if (min == 60)        // Voorkom dat er 16:60 verschijnt ipv 17:00
+  {
+    min = 0;
+    hrs += 1;
+    if (hrs > 24 )
+      hrs = 0;
+  }
 
-    if (min == 60)        // Voorkom dat er 16:60 verschijnt ipv 17:00
-    {
-      min = 0;
-      hrs += 1;
-      if (hrs > 24 )
-        hrs = 0;
-    }
-
-    lSunTime.hh = hrs;
-    lSunTime.mm = min;
-    lSunTime.ss = 0;
-    return lSunTime;
+  lSunTime.hh = hrs;
+  lSunTime.mm = min;
+  return lSunTime;
 }
 
 DateTime GetSunRise(DateTime aDate)
@@ -190,56 +158,60 @@ DateTime GetSunSet(DateTime aDate)
   return getSunTime(aDate, false);
 }
 
+bool IsDst(DateTime aDate)
+{
+  return IsDst(aDate.yOff, aDate.m, aDate.d);
+}
+bool IsDst(uint16_t aY, uint8_t aM, uint8_t aD)
+{
+  uint16_t firstDay =  31 - ((5 * aY / 4) - (aY / 100) + (aY / 400) + 5) % 7;
+  if(firstDay > 31)
+    firstDay-=7;
+  uint16_t lastDay = 31 - ((5 * aY / 4) - (aY / 100) + (aY / 400) + 2) % 7;
+  if(lastDay > 31)
+    lastDay-=7;
+  bool dst = false;
+  if ((aM>2) && (aM<9))   // between april and september always dst
+    dst = true;
+  else if((aM==2) && (aD>=firstDay))
+    dst = true;
+  else if((aM==9) && (aD<=lastDay))
+    dst = true;
+  
+  return dst;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // DateTime implementation - ignores time zones and DST changes
 // NOTE: also ignores leap seconds, see http://en.wikipedia.org/wiki/Leap_second
 
-DateTime::DateTime (uint32_t t)
+DateTime::DateTime ()
 {
-  t -= SECONDS_FROM_1970_TO_2000;    // bring to 2000 timestamp from 1970
-
-    ss = t % 60;
-    t /= 60;
-    mm = t % 60;
-    t /= 60;
-    hh = t % 24;
-    uint16_t days = t / 24;
-    uint8_t leap;
-    for (yOff = 0; ; ++yOff) {
-        leap = yOff % 4 == 0;
-        if (days < 365 + leap)
-            break;
-        days -= 365 + leap;
-    }
-    for (m = 1; ; ++m) {
-        uint8_t daysPerMonth = pgm_read_byte(daysInMonth + m - 1);
-        if (leap && m == 2)
-            ++daysPerMonth;
-        if (days < daysPerMonth)
-            break;
-        days -= daysPerMonth;
-    }
-    d = days + 1;
+  Clear();
 }
 
-DateTime::DateTime (uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t min, uint8_t sec)
+DateTime::DateTime (uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t min)
 {
-    if (year >= 2000)
-        year -= 2000;
+  Set (year,month,day,hour,min);
+}
+
+void DateTime::Set (uint16_t year, uint8_t month, uint8_t day, uint8_t hour =0, uint8_t min =0)
+{
+  Clear();
+  if (year >= 2000)
+    year -= 2000;
+
+  if((month<=12) &&
+    (day>0) && (day<=31) &&
+    (hour<=24) &&
+    (min<=60))
+  {
     yOff = year;
-    if((month<=12) &&
-       (day<=31) &&
-       (hour<=24) &&
-       (min<=60) &&
-       (sec<=60))
-    {
-      m = month;
-      d = day;
-      hh = hour;
-      mm = min;
-      ss = sec;
-    }
+    m = month;
+    d = day;
+    hh = hour;
+    mm = min;
+  }
 }
 
 void DateTime::Clear()
@@ -249,7 +221,6 @@ void DateTime::Clear()
     d = 0;
     hh = 0;
     mm = 0;
-    ss = 0;
 }
 
 bool DateTime::IsValid()
@@ -265,7 +236,7 @@ const char* DateTime::GetTimeStr()
 }
 const char* DateTime::GetDateStr()
 {
-  sprintf(mStr," %02d-%02d-%4d",d,m,yOff+2000);
+  sprintf(mStr," %02d-%02d-%4d",d,m,year());
   return mStr;
 }
 bool DateTime::operator==(const DateTime theOther)
@@ -289,41 +260,18 @@ static uint8_t conv2d(const char* p)
     return 10 * v + *++p - '0';
 }
 
-// A convenient constructor for using "the compiler's time":
-//   DateTime now (__DATE__, __TIME__);
-// NOTE: using PSTR would further reduce the RAM footprint
-DateTime::DateTime (const char* date, const char* time)
+uint8_t DateTime::dayOfWeek() const
 {
-    // sample input: date = "Dec 26 2009", time = "12:34:56"
-    yOff = conv2d(date + 9);
-    // Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec 
-    switch (date[0]) {
-        case 'J': m = date[1] == 'a' ? 1 : m = date[2] == 'n' ? 6 : 7; break;
-        case 'F': m = 2; break;
-        case 'A': m = date[2] == 'r' ? 4 : 8; break;
-        case 'M': m = date[2] == 'r' ? 3 : 5; break;
-        case 'S': m = 9; break;
-        case 'O': m = 10; break;
-        case 'N': m = 11; break;
-        case 'D': m = 12; break;
-    }
-    d = conv2d(date + 4);
-    hh = conv2d(time);
-    mm = conv2d(time + 3);
-    ss = conv2d(time + 6);
+  uint16_t day = date2days(yOff, m, d);
+  day = (day + 6) % 7; // Jan 1, 2000 is a Saturday, i.e. returns 6
+  // now sunday=0, inconvenient
+  // better monday=0
+
+  if( day==0)
+    day=6;
+  else
+    day--;
+  return day;
 }
 
-uint8_t DateTime::dayOfWeek() const {    
-    uint16_t day = date2days(yOff, m, d);
-    return (day + 6) % 7; // Jan 1, 2000 is a Saturday, i.e. returns 6
-}
-
-uint32_t DateTime::unixtime(void) const {
-  uint32_t t;
-  uint16_t days = date2days(yOff, m, d);
-  t = time2long(days, hh, mm, ss);
-  t += SECONDS_FROM_1970_TO_2000;  // seconds from 1970 to 2000
-
-  return t;
-}
  

@@ -17,11 +17,13 @@ public:
 
 private:
 	void 	 execute(byte CMD, uint16_t Par);
-	uint32_t readPlayer(byte* aCommand);
+	byte readPlayer();
 	
 	byte mNumberOfTracks;
 	byte mVolume;
 	bool mActive;
+
+  unsigned long mPrevTimeMs;
 };
 
 #endif

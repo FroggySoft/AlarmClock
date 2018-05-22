@@ -31,7 +31,9 @@ private:
   void checkMessage(bool* aMessage);
   bool addToWeatherInfo(bool* aMessage);
   void copyWeatherInfo(bool* aMessage, byte aIndex);
+  bool checkValidMessage(bool* aMessage);
   bool checkParity(bool* aMessage, byte aStart, byte aEnd);
+  byte getMinute(bool* aMessage);
   byte flipByte(byte aByte);
   void CopyTimeToByteUint(byte* data, byte* key, struct DataContainer* container);
   void ShiftTimeRight(int round, struct DataContainer* container);
@@ -44,7 +46,8 @@ private:
   byte getArea(DateTime aTime);
   byte getSection(DateTime aTime);
   unsigned int getMinutesSince2200(DateTime aTime);
-  
+  byte GetDecFromBcd(bool* aMessage,byte aStart);
+
   bool mPrevDcf;
   unsigned long mTimePosEdge;
   unsigned long mTimeNegEdge;
@@ -60,6 +63,7 @@ private:
   int mPort;
   
   DateTime mTime;
+  bool mTimeValid;
 };
 
 #endif

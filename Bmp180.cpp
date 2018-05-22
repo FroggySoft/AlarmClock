@@ -1,6 +1,5 @@
-
+#include "ProjSettings.h"
 #include "Bmp180.h"
-#include "Arduino.h"
 #include <Wire.h>
 
 #define BMP180_ADDR 0x77 // 7-bit address

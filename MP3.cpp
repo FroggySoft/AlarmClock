@@ -1,5 +1,4 @@
-
-//#define DEBUG
+#include "ProjSettings.h"
 
 #include "MP3.h"
 #include "SoftwareSerial.h"
@@ -19,37 +18,28 @@ void MP3::Init()
 
 void MP3::Run()
 {
-//  if (mNumberOfTracks==0)
-//  {
-//    byte lCommand = 0x48;
-//    execute(lCommand,0);  // get Track count
-//    delay(100);
-//    uint16_t lData = readPlayer(&lCommand);
-//    if (lCommand == 0x48)
-//    {
-//      mNumberOfTracks = lData; 
-//#ifdef DEBUG  
-//      Serial.print(F("Number of tracks on sd-card: ")); 
-//      Serial.println(mNumberOfTracks);
-//#endif
-//    }
-//  }
   if (mActive)
   {
-    byte lCommand = 0;
-    readPlayer(&lCommand);
-    if (lCommand==0x3D)  // finished 
+    unsigned long nowMs = millis();
+    unsigned long diff = nowMs-mPrevTimeMs;
+
+    if( diff>1000)    // check once a second
     {
-      mActive = false;
+      if (readPlayer()==0x3D)  // finished 
+      {
+        mActive = false;
+      }
+      mPrevTimeMs = millis();
     }
   }
 }
 
 void MP3::Start()
 {
-//  byte lTrack = 1 + random(1,mNumberOfTracks);
-//  execute(0x03, lTrack);
-  execute(0x03, 1);
+  mPrevTimeMs = millis();
+  byte lTrack = 1 + (mPrevTimeMs % 9);
+  execute(0x03, lTrack);
+//  execute(0x03, 1);
   mActive = true;
 }
 void MP3::Stop()
@@ -60,7 +50,8 @@ void MP3::Stop()
 
 void MP3::Next()
 {
-  execute(0x01,0);   
+  execute(0x01,0);
+  mActive = true;
 }
 
 bool MP3::IsActive()
@@ -110,35 +101,26 @@ void MP3::execute(byte CMD, uint16_t Par)
   delay(100);
 }
 
-uint32_t MP3::readPlayer(byte* aCommand)
+byte MP3::readPlayer()
 {
-  uint32_t lResult = 0;
+  byte lResult = 0;
 
   byte n=0;
-  *aCommand = 0;
   
   mySerial.setTimeout(100);
-//  if(mySerial.available())
-//    Serial.print(F("Receiving: "));
   while(mySerial.available())
   {
     byte lData = mySerial.read();
-//    Serial.print(lData,HEX);
-//    Serial.print(" ");
     if (n==3)
     {
-      *aCommand = lData;
+      lResult = lData;
     }
-    if (n>=5 && n<=6)
-    {
-      lResult <<= 8;
-      lResult |= lData;
-    }
+//    if (n>=5 && n<=6)
+//    {
+//      lResult <<= 8;
+//      lResult |= lData;
+//    }
     n++;
   }
-//  if( n!=0)
-//  {
-//    Serial.println();
-//  }
   return lResult;
 }

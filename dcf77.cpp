@@ -1,3 +1,4 @@
+#include "ProjSettings.h"
 #include "dcf77.h"
 
 #define LENGTH_ONE   150
@@ -6,8 +7,6 @@
 #define NEW_MSG_TIME  2000
 
 #define PinDcf  12
-
-//#define DEBUG
 
 void Dcf77::Init(int aPort)
 {
@@ -25,6 +24,7 @@ void Dcf77::Init(int aPort)
   mWeatherSection = 0 ;
 
   mTime.Clear();
+  mTimeValid = false;
 }
 
 byte Dcf77::Run()
@@ -50,7 +50,9 @@ byte Dcf77::Run()
   if (((now - mTimePosEdge) > MIN_BIT_TIME) && !mBitReceived)  // waited long enough for a complete bit
   {
     bool lBit = ((mTimeNegEdge - mTimePosEdge) >= LENGTH_ONE);
-    //Serial.print(lBit);
+#ifdef DEBUG
+    Serial.print(lBit);
+#endif
     if(mBitCounter<MSG_SIZE)
     {
       mMessage[mBitCounter] = lBit;
@@ -66,7 +68,7 @@ byte Dcf77::Run()
   {
     // start of message (>1 sec after last bit)
 #ifdef DEBUG
-    //Serial.println();
+    Serial.println();
 #endif
     checkMessage(mMessage);
     lResult = DCF_STATE_NEWMINUTE;		// new complete minute
@@ -93,7 +95,8 @@ DateTime Dcf77::GetTime(void)
 
 bool Dcf77::TimeIsValid()
 {
-  return (mTime.d != 0);
+  //return (mTime.d != 0);
+  return mTimeValid;
 }
 
 byte Dcf77::GetWeatherArea()
@@ -117,9 +120,11 @@ bool Dcf77::GetWeatherInfo(byte* aWeatherInfo)
     uiBitCnt = 0;
     int uiCnt = 1;
 
-//    Serial.println(F("Decoded: "));
-//    for( int i=0; i<82; i++) Serial.print(mWeatherData[i]);
-//    Serial.println();
+#ifdef DEBUG
+    Serial.println(F("Decoded: "));
+    for( int i=0; i<82; i++) Serial.print(mWeatherData[i]);
+    Serial.println();
+#endif
     
     for (; uiCnt < 42; uiCnt++)
     {
@@ -174,38 +179,52 @@ bool Dcf77::GetWeatherInfo(byte* aWeatherInfo)
   return lValid;
 }
 
-
-//#ifdef DEBUG
-//String cWeekdays[] = {"MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"};
-//#endif
-
 void Dcf77::checkMessage(bool* aMessage)
 {
   // sometimes the first bit is missed (due to decoding weather)
   //if(aMessage[0]==0 && aMessage[20]==1 && mBitCounter>=58
   if(aMessage[20]==1 && mBitCounter>=58)
   {
-    if (checkParity(aMessage,21,28) && checkParity(aMessage,29,35) && checkParity(aMessage,36,58))
+    //if (checkParity(aMessage,21,28) && checkParity(aMessage,29,35) && checkParity(aMessage,36,58))
+    if(checkValidMessage(aMessage))
     {
-      mTime.ss = 0;
-      mTime.hh = 10*(aMessage[33] + aMessage[34]*2) +  // MSD hours
-           (aMessage[29] + aMessage[30]*2 + aMessage[31]*4 + aMessage[32]*8);  // LSD hours
-      mTime.mm = 10*(aMessage[25] + aMessage[26]*2 + aMessage[27]*4) +   // MSD minutes
-           (aMessage[21] + aMessage[22]*2 + aMessage[23]*4 + aMessage[24]*8); // LSD minutes
+      //uint8_t hh = (aMessage[29] + aMessage[30]*2 + aMessage[31]*4 + aMessage[32]*8) + 10*(aMessage[33] + aMessage[34]*2);
+      uint8_t hh = GetDecFromBcd(aMessage,29);
+      uint8_t mm = getMinute(aMessage);
            
-      mTime.dst = aMessage[17];	// actually bit17+18 indicates the offset to UTC
+      //mTime.dst = aMessage[17];	// actually bit17+18 indicates the offset to UTC
       
-      mTime.d = (aMessage[36] + aMessage[37]*2 + aMessage[38]*4 + aMessage[39]*8) + 
-          10*(aMessage[40] + aMessage[41]*2);
-      mTime.weekday = aMessage[42] + aMessage[43]*2 + aMessage[44]*4;
-      mTime.m = (aMessage[45] + aMessage[46]*2 + aMessage[47]*4 + aMessage[48]*8) + 
-          10*aMessage[49];
-      mTime.yOff = (aMessage[50] + aMessage[51]*2 + aMessage[52]*4 + aMessage[53]*8) + 
+      //uint8_t d = (aMessage[36] + aMessage[37]*2 + aMessage[38]*4 + aMessage[39]*8) +  10*(aMessage[40] + aMessage[41]*2);
+      uint8_t d = GetDecFromBcd(aMessage,36);
+      //mTime.weekday = aMessage[42] + aMessage[43]*2 + aMessage[44]*4;
+      uint8_t m = (aMessage[45] + aMessage[46]*2 + aMessage[47]*4 + aMessage[48]*8) +  10*aMessage[49];
+      uint8_t yOff = (aMessage[50] + aMessage[51]*2 + aMessage[52]*4 + aMessage[53]*8) + 
              10*(aMessage[54] + aMessage[55]*2 + aMessage[56]*4 + aMessage[57]*8);
+
+      #ifdef DEBUG
+      Serial.print("From DCF: ");
+      Serial.print(yOff);
+      Serial.print("-");
+      Serial.print(m);
+      Serial.print("-");
+      Serial.print(d);
+      Serial.print(" ");
+      Serial.print(hh);
+      Serial.print(":");
+      Serial.print(mm);
+      #endif
+      mTime.Set(yOff,m,d,hh,mm);
+      if (mTime.IsValid())
+        mTimeValid = true;
+      #ifdef DEBUG
+      Serial.print(" = ");
+      Serial.println(mTimeValid);
+      #endif
     }
     else
     {
       mTime.Clear();
+      mTimeValid = false;
     }
   }
 }
@@ -216,7 +235,8 @@ bool Dcf77::addToWeatherInfo(bool* aMessage)
   //if(aMessage[0]==0 && aMessage[20]==1 && mBitCounter>=58)
   if(aMessage[20]==1 && mBitCounter>=58)
   {
-    if (checkParity(aMessage,21,28) && checkParity(aMessage,29,35) && checkParity(aMessage,36,58))
+    //if (checkParity(aMessage,21,28) && checkParity(aMessage,29,35) && checkParity(aMessage,36,58))
+    if(checkValidMessage(aMessage))
     {
       // a complete meteo string contains:
       // data[1..14] of 3 messages (note, skip bit 0 and 7 of first message)
@@ -228,8 +248,10 @@ bool Dcf77::addToWeatherInfo(bool* aMessage)
       //    weekday(3 bit)
       //    year   (8 bit)
 
-      byte minute = (aMessage[21] + aMessage[22]*2 + aMessage[23]*4 + aMessage[24]*8) + // LSD minutes
-                    10*(aMessage[25] + aMessage[26]*2 + aMessage[27]*4);
+//      byte minute = (aMessage[21] + aMessage[22]*2 + aMessage[23]*4 + aMessage[24]*8) + // LSD minutes
+//                    10*(aMessage[25] + aMessage[26]*2 + aMessage[27]*4);
+      byte minute = getMinute(aMessage);
+      
       minute--;
       byte part = minute % 3;
       switch(part)
@@ -287,6 +309,11 @@ void Dcf77::copyWeatherInfo(bool* aMessage, byte aIndex)
   }
 }
 
+bool Dcf77::checkValidMessage(bool* aMessage)
+{
+  return (checkParity(aMessage,21,28) && checkParity(aMessage,29,35) && checkParity(aMessage,36,58));
+}
+
 bool Dcf77::checkParity(bool* aMessage, byte aStart, byte aEnd)
 {
   byte lParity = false;
@@ -295,6 +322,16 @@ bool Dcf77::checkParity(bool* aMessage, byte aStart, byte aEnd)
   return ((lParity&0x01) == aMessage[aEnd]);
 }
 
+byte Dcf77::getMinute(bool* aMessage)
+{
+  return (aMessage[21] + aMessage[22]*2 + aMessage[23]*4 + aMessage[24]*8) + // LSD minutes
+          10*(aMessage[25] + aMessage[26]*2 + aMessage[27]*4);
+}
+
+byte Dcf77::GetDecFromBcd(bool* aMessage,byte aStart)
+{
+  return (aMessage[aStart++] + aMessage[aStart++]*2 + aMessage[aStart++]*4 + aMessage[aStart++]*8) + 10*(aMessage[aStart++] + aMessage[aStart]*2);
+}
         /// bit pattern for 0D,0E from 0B-0D
          const uint32_t mUintArrBitPattern12[] /*PROGMEM*/ = {
           0x80000, //0b10000000000000000000, // 0D.3 
@@ -726,7 +763,8 @@ byte Dcf77::getSection(DateTime aTime)
   {
     int hours = aTime.hh;
     hours--;    // CET -> UTC
-    if (aTime.dst)  // correction DST
+    //if (aTime.dst)  // correction DST
+    if( IsDst(aTime))
       hours--;
     hours -= 22;
     if (hours<0)
