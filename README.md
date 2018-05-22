@@ -1,5 +1,5 @@
 # AlarmClock
-Alarmclock based upon a Arduino Uno with an 3.5 inch (320x480) TFT shield.
+Alarmclock based upon a Arduino Uno with an 2.4 inch (320x240) TFT shield.
 
 But it's not just an alarm clock with an RTC (DS1307). It will also:
 
